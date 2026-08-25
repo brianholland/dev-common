@@ -67,3 +67,8 @@ jobs:
       # at once (dev-common#180).
       - name: Version bumped (embedded in ci.yml AND self-hosted-ci.yml)
         run: bash tests/version-bumped.test.sh
+
+      # Same shape, same reason: the step is duplicated across the two tagging
+      # workflows, so the suite runs against BOTH rather than picking one.
+      - name: Tag collision (embedded in tag-version.yml AND tag-version-self-hosted.yml)
+        run: bash tests/tag-version-collision.test.sh
