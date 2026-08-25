@@ -39,14 +39,58 @@ jobs:
           VERSION=$(grep '^VERSION=' Makefile | cut -d'=' -f2)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # A tag that already exists is TWO different situations needing OPPOSITE
+      # responses, and this step used to conflate them into one silent skip:
+      #
+      #   same commit      -- a re-run, or a push that changed nothing. Benign.
+      #                       Skip, and say why.
+      #   DIFFERENT commit -- this tree is on main under a version that belongs
+      #                       to another tree. Ten commits across slingshot and
+      #                       panoptikon are permanently in that state
+      #                       (bdh-org/home-infra#617), and three more landed
+      #                       after the guards were believed to close it.
+      #                       Nothing anywhere went red. Fail loudly.
+      #
+      # NOTE this step only helps once the workflow actually RUNS on the offending
+      # commit. It did not: consumers trigger on `paths: ['Makefile']`, and a
+      # colliding merge leaves Makefile byte-identical because the base already
+      # reached that version, so the filter never matched. Dropping that filter
+      # across the consumer wrappers is bdh-org/home-infra#625; without it this
+      # check is correct and unreachable.
+      #
+      # `git rev-list -n1` rather than `git rev-parse`: it resolves an annotated
+      # tag to its commit, so the comparison is commit-to-commit either way.
+      # `refs/tags/` rather than a bare name: a branch sharing the name would
+      # otherwise satisfy the lookup.
       - name: Check if tag exists
         id: check_tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
+          set -eu
+          if ! git rev-parse -q --verify "refs/tags/${VERSION}" >/dev/null 2>&1; then
             echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+          tagged="$(git rev-list -n1 "refs/tags/${VERSION}")"
+          head="$(git rev-parse HEAD)"
+          if [ "$tagged" = "$head" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "tag ${VERSION} already points at this commit -- nothing to do"
+            exit 0
+          fi
+          echo "::error::VERSION COLLISION: ${VERSION} is already tagged, on a DIFFERENT commit."
+          echo "::error::  tag ${VERSION} -> ${tagged}"
+          echo "::error::  this commit   -> ${head}"
+          echo "::error::This tree is on the default branch under a version belonging to"
+          echo "::error::another tree, and nothing downstream can tell the two apart."
+          echo "::error::"
+          echo "::error::Fix forward -- bump to a free number and push:"
+          echo "::error::    make bump-patch && git push"
+          echo "::error::"
+          echo "::error::Do NOT move the existing tag: it describes an image that already"
+          echo "::error::shipped. See bdh-org/home-infra#617 for why re-tagging is refused."
+          exit 1
 
       # The push can be rejected for a reason that has nothing to do with the
       # tag: GitHub evaluates a NEW ref's workflow files against the current
