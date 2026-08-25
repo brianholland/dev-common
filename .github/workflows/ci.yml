@@ -107,8 +107,21 @@ jobs:
           # Greater-than catches the second and third -- but only once their CI
           # re-runs against the moved base, which is what "Require branches to
           # be up to date before merging" (strict status checks) enforces. The
-          # guard and that setting are one mechanism in two halves;
-          # bdh-org/home-infra#414 covers the other.
+          # guard and that setting are one mechanism in two halves, and ONLY THIS
+          # HALF IS VERSIONED -- the other is a per-repo GitHub setting, invisible
+          # here, set by hand at repo creation and checked by nothing.
+          #
+          # That is not hypothetical. finzeug/slingshot#199 and #206 each merged
+          # carrying a version another commit had already taken, both with GREEN
+          # CI, and both are untagged to this day: #199's run finished 32 seconds
+          # before #198 merged and took 0.1.76, then #199 merged 2m40s later on
+          # that stale result. The guard did not fail -- it never re-ran.
+          #
+          # bdh-org/home-infra#623 covers the other half (a fleet audit of branch
+          # protection). This comment used to cite bdh-org/home-infra#414, which
+          # is CLOSED and is about submodule-bump PRs nobody merges -- it never
+          # covered branch protection, and two sessions read that pointer as
+          # assurance the half was handled.
           if [ "$head_v" = "$base_v" ]; then
             :   # unchanged -- fall through to the "did anything else change?" test
           elif [ "$(printf '%s\n%s\n' "$base_v" "$head_v" | sort -V | tail -1)" = "$head_v" ]; then
