@@ -107,8 +107,11 @@ jobs:
           # Greater-than catches the second and third -- but only once their CI
           # re-runs against the moved base, which is what "Require branches to
           # be up to date before merging" (strict status checks) enforces. The
-          # guard and that setting are one mechanism in two halves;
-          # bdh-org/home-infra#414 covers the other.
+          # guard and that setting are one mechanism in two halves. The
+          # rollout is recorded in bdh-org/home-infra#414's COMMENTS (that
+          # issue's own subject is submodule bumps, and it is closed);
+          # whether protection is still on, and whether repos added since
+          # 2026-08-15 ever got it, is bdh-org/home-infra#623.
           if [ "$head_v" = "$base_v" ]; then
             :   # unchanged -- fall through to the "did anything else change?" test
           elif [ "$(printf '%s\n%s\n' "$base_v" "$head_v" | sort -V | tail -1)" = "$head_v" ]; then

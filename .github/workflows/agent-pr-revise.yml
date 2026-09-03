@@ -62,14 +62,24 @@ on:
       max_turns:
         description: >
           Default Claude Code --max-turns budget for the revision run, and the
-          fallback when a comment asks for something unusable. Default matches
-          agent-issue-to-pr; revisions are usually smaller than the original
-          implementation, so most wrappers should leave this alone and let the one
-          big revision ask for more with an `agent-turns:` directive
+          fallback when a comment asks for something unusable.
+
+          Raised 50 -> 100 to genuinely match agent-issue-to-pr (dev-common#230).
+          It SAID it matched while being half. The old rationale -- "revisions are
+          usually smaller" -- is the same reasoning bdh-org/home-infra#367
+          discarded when it raised the sibling workflow: --max-turns is a CEILING,
+          not a budget that gets spent, so a revision finishing in 12 turns costs
+          12 either way. The only thing a lower ceiling bought was a failure on the
+          occasional large revision, which is exactly what happened on
+          finzeug/slingshot#255 (died at 51 of 50).
+
+          NOTE: an `agent-turns:` directive on an ISSUE does not reach a /revise
+          run. Each run reads directives from its own trigger, so a large revision
+          must carry its own `agent-turns:` in the /revise comment itself
           (dev-common#131).
         type: number
         required: false
-        default: 50
+        default: 100
       model:
         description: >
           Default Claude model for the revision run, and the fallback when a comment
