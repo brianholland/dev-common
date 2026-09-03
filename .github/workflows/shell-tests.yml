@@ -65,7 +65,7 @@ jobs:
       # stack merges through. It ships as workflow YAML, so nothing else can
       # catch a change to it before it is enforcing the wrong rule everywhere
       # at once (dev-common#180).
-      - name: Version bumped (embedded in ci.yml AND self-hosted-ci.yml)
+      - name: Version bumped (embedded in ci.yml, self-hosted-ci.yml AND version-guard.yml)
         run: bash tests/version-bumped.test.sh
 
       # Same shape, same reason: the step is duplicated across the two tagging
