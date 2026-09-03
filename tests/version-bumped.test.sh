@@ -165,6 +165,35 @@ for WF_NAME in $WORKFLOWS; do
     esac
   fi
 
+  CASE="[$WF_NAME] the colliding branch MERGES CLEANLY, and is still rejected"
+  # The case a conflict-based heuristic cannot catch, and the reason this gate
+  # has to ask "is VERSION strictly greater than base RIGHT NOW" rather than
+  # "did this branch need a rebase".
+  #
+  # Both sides make the IDENTICAL edit to the Makefile -- 2.12.105 -> 2.12.106 --
+  # and git merges an identical change as AGREEMENT, not as a conflict. So the PR
+  # goes on reporting mergeable/CLEAN while its version is stale, and anything
+  # keying on conflict leaves it alone.
+  #
+  # Live example, 2026-09-03: four heller PRs each bumped 1.3.221 -> 1.3.222.
+  # Three of them touch overlapping sections and conflict with each other after
+  # the first merge, so they announce themselves. The fourth (finzeug/heller#488)
+  # touches a different section and conflicts with NOTHING in either direction --
+  # it stays textually clean while its version goes stale. The well-separated PR
+  # is the dangerous one, precisely because it is tidy.
+  d=$(make_collision_repo 2.12.105 2.12.106)
+  if ( cd "$d" && git merge --no-commit --no-ff origin/main >/dev/null 2>&1 ); then
+    ( cd "$d" && git merge --abort >/dev/null 2>&1 || true )
+    if out=$(run_step "$d"); then
+      notok "the fixture merges cleanly AND passed the gate -- a clean merge is being read as a correct version"
+    else
+      ok "a branch that merges cleanly is still rejected when its version is taken"
+    fi
+  else
+    ( cd "$d" && git merge --abort >/dev/null 2>&1 || true )
+    notok "the fixture CONFLICTS, so it no longer covers the clean-merge case -- the identical-bump-as-agreement property has been lost"
+  fi
+
   CASE="[$WF_NAME] a version that goes backwards"
   d=$(make_repo 2.12.110 2.12.109 src.py)
   if out=$(run_step "$d"); then notok "2.12.110 -> 2.12.109 passed"
