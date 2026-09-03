@@ -97,7 +97,8 @@ permissions:
 # one slot to completion while the run that matters waits behind it.
 #
 # This got sharper the moment branch protection landed with `strict: true`
-# (bdh-org/home-infra#414): every merge to main makes every other open PR
+# (rolled out 2026-08-14/15; recorded in bdh-org/home-infra#414's comments,
+# and tracked for drift by #623): every merge to main makes every other open PR
 # out-of-date, so each one is re-pushed, and without this each re-push leaves its
 # predecessor occupying the runner. A sweep that opens fourteen bump PRs turns
 # one merge into fourteen doomed runs ahead of the fourteen real ones.

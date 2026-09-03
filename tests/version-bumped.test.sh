@@ -27,8 +27,11 @@
 # So the gate now asks for STRICTLY GREATER. That catches the second and third
 # PR -- but only when their CI re-runs against the moved base, which is what
 # "Require branches to be up to date before merging" enforces at the branch
-# settings (bdh-org/home-infra#414). This file tests the half that lives in
-# code; the other half is a repo setting and cannot be tested here.
+# settings. That rollout is recorded in bdh-org/home-infra#414's comments and
+# tracked for drift by #623. This file tests the half that lives in code; the
+# other half is a repo setting and cannot be tested here -- and, since the
+# branch-protection API 403s for the bdh-ai account, cannot currently be
+# OBSERVED from here either, which is #623's problem rather than this file's.
 #
 # The cases run the REAL step body, extracted from the workflow, against
 # throwaway git repos -- not a re-implementation of its logic, which would pass
