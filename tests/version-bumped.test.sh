@@ -45,7 +45,7 @@ HERE="$(cd "$(dirname "$0")" && pwd)"
 # Every workflow that embeds the gate. Adding a third is one line here, and a
 # file that stops carrying the step fails the "extractable" case rather than
 # silently dropping out of coverage.
-WORKFLOWS="ci.yml self-hosted-ci.yml"
+WORKFLOWS="ci.yml self-hosted-ci.yml version-guard.yml"
 STEP_NAME="Version bumped"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -110,6 +110,33 @@ for WF_NAME in $WORKFLOWS; do
     echo "$d"
   }
 
+  # The dev-common#208 shape, which make_repo CANNOT build: the branch really did
+  # bump (fork -> taken) and the base has SINCE reached that same number. Only
+  # then does the merge base's version differ from HEAD's, and that difference is
+  # the only thing separating a collision from a missing bump.
+  #
+  # make_repo's "collision" case sets base == head == merge base, so it never
+  # reaches the collision branch at all -- which is how dev-common#232 hid.
+  make_collision_repo() { # fork_version taken_version
+    local fork="$1" taken="$2" d="$TMP/collide-$RANDOM"
+    mkdir -p "$d" && cd "$d" || return 1
+    git init -q -b main .
+    printf 'VERSION=%s\n' "$fork" > Makefile
+    git add Makefile && git commit -qm base
+    git clone -q --bare . "$d/origin.git" && git remote add origin "$d/origin.git"
+    git checkout -qb pr
+    echo change > src.py && git add src.py
+    printf 'VERSION=%s\n' "$taken" > Makefile && git add Makefile
+    git commit -qm "pr bumps $fork -> $taken"
+    git checkout -q main
+    printf 'VERSION=%s\n' "$taken" > Makefile
+    git commit -qam "another PR took $taken first"
+    git push -q origin main
+    git checkout -q pr
+    git fetch -q origin
+    echo "$d"
+  }
+
   run_step() { ( cd "$1" && bash "$SCRIPT" 2>&1 ); }
 
   CASE="[$WF_NAME] a real bump"
@@ -122,6 +149,21 @@ for WF_NAME in $WORKFLOWS; do
   d=$(make_repo 2.12.106 2.12.106 src.py)
   if out=$(run_step "$d"); then notok "base 2.12.106 == head 2.12.106 with a code change PASSED -- #180 is not fixed"
   else ok "a PR whose version equals the base's is rejected"; fi
+
+  CASE="[$WF_NAME] a collision is NAMED a collision"
+  # dev-common#232. Both files reject this input, so an exit-code-only assertion
+  # went green while ci.yml told the author to run `make bump-patch` -- the command
+  # they had ALREADY run, which is the one instruction that looks wrong and is
+  # right. The message is the deliverable here, so the message is what is asserted.
+  d=$(make_collision_repo 2.12.105 2.12.106)
+  if out=$(run_step "$d"); then
+    notok "a version the base has already taken PASSED"
+  else
+    case "$out" in
+      *"VERSION COLLISION"*) ok "a taken version is named a collision and carries the re-bump recipe" ;;
+      *) notok "rejected with the missing-bump message: the author is told to re-run the bump they already ran -- $out" ;;
+    esac
+  fi
 
   CASE="[$WF_NAME] a version that goes backwards"
   d=$(make_repo 2.12.110 2.12.109 src.py)
@@ -159,6 +201,31 @@ for WF_NAME in $WORKFLOWS; do
   else notok "a repo that does not version this way was failed: $out"; fi
 
 done
+
+# The cheapest of these checks and the strongest. Every case above asks each copy
+# to BEHAVE; this asks them to be ONE THING. The two inline copies drifted twice
+# under a comment telling them not to -- dev-common#182 tightened one and not the
+# other, then #208's collision message landed in self-hosted-ci.yml alone
+# (dev-common#232) -- and both times the behavioural cases stayed green, because
+# they compared exit codes and the divergence was in a MESSAGE.
+#
+# A comment cannot make two files agree. This can.
+CASE="[all] every copy of the step is byte-identical"
+ref=""; ref_name=""; identical=1
+for WF_NAME in $WORKFLOWS; do
+  body="$(extract "$HERE/../.github/workflows/$WF_NAME" "$STEP_NAME")"
+  if [ -z "$ref_name" ]; then ref="$body"; ref_name="$WF_NAME"; continue; fi
+  if [ "$body" != "$ref" ]; then
+    identical=0
+    echo "--- $ref_name vs $WF_NAME ---"
+    diff <(printf '%s\n' "$ref") <(printf '%s\n' "$body") || true
+  fi
+done
+if [ "$identical" -eq 1 ]; then
+  ok "all $(set -- $WORKFLOWS; echo $#) copies carry the same body"
+else
+  notok "the copies have drifted -- see the diff above"
+fi
 
 echo
 echo "passed: $pass   failed: $fail"

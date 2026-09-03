@@ -451,17 +451,17 @@ jobs:
             exit 0
           fi
           if [ "$head_v" != "$base_v" ]; then
-            # STRICTLY GREATER, not merely different. The hosted workflow got this
-            # in dev-common#182; this file did not, and EVERY repo in the stack is
-            # on the self-hosted path -- so the fleet has been running the weaker
-            # test since 2026-08-15 while the fix looked shipped.
+            # STRICTLY GREATER, not merely different (dev-common#180/#182).
             #
-            # Scope, stated because it was overstated once: this does NOT affect the
-            # parallel-set collision. That is caught below, by the equal-version
-            # fallthrough and the merge-base message, under either operator. What
-            # `!=` lets through is a version that DECREASES -- which cannot be
-            # tagged, and whose image tag collides with a build that already
-            # shipped.
+            # "Different" passes every branch in a parallel set: three panoptikon
+            # PRs each branched from 2.12.105 and each bumped to 2.12.106, so each
+            # differed from its base and each went green. The first merged and
+            # tagged 2.12.106; the other two rode onto main under a version whose
+            # tag pointed two commits behind them (finzeug/panoptikon#728/#729/#730).
+            #
+            # What `!=` alone lets through is a version that DECREASES -- which
+            # cannot be tagged, and whose image tag collides with a build that has
+            # already shipped.
             if [ "$(printf '%s\n%s\n' "$base_v" "$head_v" | sort -V | tail -1)" = "$head_v" ]; then
               echo "version bumped: $base_v -> $head_v"
               exit 0
