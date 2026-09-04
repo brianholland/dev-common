@@ -48,6 +48,13 @@ jobs:
       - name: setup-claude-identity.sh
         run: bash tests/setup-claude-identity.test.sh
 
+      # Same reason as setup-claude-identity.sh above: it runs at postCreate in
+      # every repo that sources it, and every one of its failure modes is quiet
+      # -- a container that comes up without the CLI, or with a credential that
+      # silently resolved to an empty string (dev-common#236).
+      - name: setup-grok.sh
+        run: bash tests/setup-grok.test.sh
+
       # Extracts the hydration step out of the agent workflows and runs it for
       # real against throwaway local repos -- so the script that decides whether
       # the headless agent sees a complete checkout is no longer reachable only

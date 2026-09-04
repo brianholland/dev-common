@@ -95,6 +95,7 @@ Each checklist item should be specific and actionable, e.g.:
 - `Add XAI_API_KEY to remoteEnv in devcontainer.json`
 - `Add ~/.config/xai mount to devcontainer.json`
 - `Add mkdir -p "${HOME}/.config/xai" to init-host.sh`
+- `Add a guarded source "$COMMON/setup-grok.sh" to .devcontainer/setup.sh`
 - `Update Python image from 3.12 to 3.13 in devcontainer.json`
 - `Update DEVTEMPLATE_VERSION to 0.6.3 in Makefile`
 

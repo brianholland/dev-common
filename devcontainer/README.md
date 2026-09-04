@@ -21,6 +21,9 @@ source "$COMMON/setup-python-dev.sh" "conda-packages.txt"
 
 # Claude Code CLI (native installer)
 source "$COMMON/setup-claude.sh"
+
+# Grok Build CLI (xAI's coding agent)
+source "$COMMON/setup-grok.sh"
 ```
 
 ## Scripts
@@ -80,6 +83,40 @@ Claude Code CLI setup:
 - Installs Claude Code CLI via native installer (curl)
 - Seeds a private `~/.claude.json` (onboarding stub) if absent, so each
   container keeps its own Claude Code state instead of sharing the host file
+
+### setup-grok.sh
+
+Grok Build CLI setup (xAI's coding agent, command `grok`):
+
+- Installs it with `npm install -g --prefix "$HOME/.local"`, so it lands in
+  `~/.local/bin` — already on PATH from `setup-base.sh` — rather than in
+  whichever global prefix the first `npm` on PATH happens to own
+- Appends a marker-guarded `~/.bashrc` block exporting `XAI_API_KEY` from the
+  mounted `~/.config/ai/xai/xai.json`, unless the environment already carries
+  one. `${localEnv:XAI_API_KEY}` in `remoteEnv` is empty unless the host
+  exports it, so the file is the credential that actually exists
+- Runs `grok --version` and reports which credential the container will use,
+  naming the miss when there is none
+
+`GROK_INSTALL` selects the route: `npm` (default), `curl` for xAI's shell
+installer where npm is absent, or `skip`. npm is the default because it needs
+no access to `x.ai`, does not append to `~/.bashrc` behind us, and does not put
+a binary named `agent` on PATH — the shell installer does both of those.
+
+**`~/.grok` is container-local, on purpose.** Bind-mounting one state tree into
+every container is what corrupted `~/.claude.json`, and this one also holds a
+~166 MB binary and the session logs. The credential is the API key instead,
+which is xAI's documented path for headless environments. If a *valid* key
+still leaves the CLI reporting `Not signed in`, that decision is the thing to
+revisit — persist `~/.grok/auth.json` from one `grok login --device-auth`
+rather than repeating that login per container (bdh-org/dev-common#236).
+
+The export lands in `~/.bashrc`, so it reaches interactive shells — the same
+place PATH is set. A non-interactive script that needs the key should read
+`~/.config/ai/xai/xai.json` itself.
+
+Gated by `tests/setup-grok.test.sh` on every PR; run `make test` before
+changing it.
 
 ### setup-claude-identity.sh
 
